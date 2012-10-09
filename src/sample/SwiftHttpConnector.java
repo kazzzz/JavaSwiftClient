@@ -4,6 +4,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -50,7 +51,8 @@ public class SwiftHttpConnector {
 
 	}
 
-	public void upload(String containerName, String objectName, File file) throws SwiftException {
+	public void upload(String containerName, String objectName, File file)
+			throws SwiftException {
 		URL url = null;
 		HttpURLConnection urlconn = null;
 		BufferedOutputStream bos = null;
@@ -66,6 +68,7 @@ public class SwiftHttpConnector {
 			urlconn.setDoOutput(true);
 			urlconn.setRequestProperty("Content-length",
 					Long.toString(file.length()));
+			urlconn.setFixedLengthStreamingMode((int)file.length());
 			urlconn.connect();
 
 			byte[] fbytes = new byte[1024];
@@ -76,11 +79,11 @@ public class SwiftHttpConnector {
 				bos.write(fbytes, 0, len);
 			}
 			bos.flush();
-			bos.close();
-			bis.close();
+
 			int responseCode = urlconn.getResponseCode();
 			if (responseCode != HttpURLConnection.HTTP_CREATED) {
-				throw new SwiftException("upload failed HTTP_STATUS_CODE:" + responseCode);
+				throw new SwiftException("upload failed HTTP_STATUS_CODE:"
+						+ responseCode);
 			}
 		} catch (IOException e) {
 			throw new SwiftException(e);
@@ -101,6 +104,57 @@ public class SwiftHttpConnector {
 			}
 			if (urlconn != null) {
 				urlconn.disconnect();
+			}
+		}
+	}
+
+	public File download(String containerName, String objectName,
+			String filepath) throws SwiftException {
+		URL url = null;
+		HttpURLConnection urlconn = null;
+		BufferedOutputStream bos = null;
+		BufferedInputStream bis = null;
+		try {
+			url = new URL(authInfo.getStorageToken() + "/" + containerName
+					+ "/" + objectName);
+			urlconn = (HttpURLConnection) url.openConnection();
+			urlconn.setRequestMethod("GET");
+			urlconn.setInstanceFollowRedirects(false);
+			urlconn.setRequestProperty("X-Auth-Token", authInfo.getAuthToken());
+			urlconn.setDoInput(true);
+			urlconn.connect();
+
+			int responseCode = urlconn.getResponseCode();
+			if (responseCode != HttpURLConnection.HTTP_OK) {
+				throw new SwiftException("upload failed HTTP_STATUS_CODE:"
+						+ responseCode);
+			}
+			byte[] buf = new byte[1024];
+			int len;
+			bis = new BufferedInputStream(urlconn.getInputStream());
+			File file = new File(filepath);
+			bos = new BufferedOutputStream(new FileOutputStream(filepath));
+			while ((len = bis.read(buf)) != -1) {
+				bos.write(buf, 0, len);
+			}
+			bos.flush();
+			return file;
+		} catch (IOException e) {
+			throw new SwiftException(e.getMessage(), e);
+		} finally {
+			if (bos != null) {
+				try {
+					bos.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			if (bis != null) {
+				try {
+					bis.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 		}
 	}
