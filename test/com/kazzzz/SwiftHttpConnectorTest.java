@@ -1,4 +1,4 @@
-package sample;
+package com.kazzzz;
 
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.*;
@@ -13,6 +13,10 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
+import com.kazzzz.SwiftException;
+import com.kazzzz.SwiftHttpConnector;
+import com.kazzzz.util.RandomFileGenerator;
 
 public class SwiftHttpConnectorTest {
 
@@ -54,146 +58,122 @@ public class SwiftHttpConnectorTest {
 	}
 
 	@Test
-	public void testUpload() {
+	public void testUploadOK() {
 		SwiftHttpConnector conn = null;
+		File file = null;
 		try {
 			conn = new SwiftHttpConnector();
 			conn.auth(AUTH_URL, USER, PASSWORD);
-			File file = new File("/tmp/1_3MB.file");
+			file = RandomFileGenerator.getFile("/tmp/1_3MB.file", 1300000);
 			conn.upload("myfiles", "tekito1_3MB", file);
 		} catch (SwiftException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
+		} catch (IOException e) {
+			fail(e.getMessage());
+			e.printStackTrace();
+		} finally {
+			file.delete();
 		}
 	}
 
-	@Test
+//	@Test
 	public void testUploadLargeFile() {
 		SwiftHttpConnector conn = null;
+		File file = null;
 		try {
 			conn = new SwiftHttpConnector();
 			conn.auth(AUTH_URL, USER, PASSWORD);
-			File file = new File("/tmp/bigdata");
+			file = RandomFileGenerator.getFile("/tmp/bigdata", 2000000000);
 			conn.upload("myfiles", "bigdata2GB", file);
 		} catch (SwiftException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
+		} catch (IOException e) {
+			fail(e.getMessage());
+			e.printStackTrace();
+		} finally {
+			file.delete();
 		}
 	}
 	
 	@Test
 	public void testDownloadOK() {
 		SwiftHttpConnector conn = null;
+		File file = null;
 		try {
 			conn = new SwiftHttpConnector();
 			conn.auth(AUTH_URL, USER, PASSWORD);
-			File file = conn.download("myfiles", "tekito1_3MB", "/tmp/downloaded");
+			file = conn.download("myfiles", "tekito1_3MB", "/tmp/downloaded");
 			assertEquals(file.length(), 1300000);
 		} catch (SwiftException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
+		} finally {
+			file.delete();
 		}
 		
 	}
-
-	// @Test
-	public void dummytest() throws Exception {
-		File file = new File("/tmp/aaa.txt");
-		File ofile = new File("/tmp/teki.txt");
-		System.out.println(file.length());
-		byte[] bb = new byte[1024];
-		System.out.println(bb.length);
-		FileInputStream is = new FileInputStream(file);
-		FileOutputStream os = new FileOutputStream(ofile);
-
-		int len;
-		while ((len = is.read(bb)) != -1) {
-			System.out.println("len:" + len);
-			os.write(bb, 0, len);
-		}
-		is.close();
-		os.close();
-	}
-
+	
 	@Test
+	public void testDownloadEqualsOK() {
+		SwiftHttpConnector conn = null;
+		File file = null;
+		File fileD1 = null;
+		File fileD2 = null;
+		try {
+			conn = new SwiftHttpConnector();
+			conn.auth(AUTH_URL, USER, PASSWORD);
+			file = RandomFileGenerator.getFile("/tmp/equalsOK.file", 512000);
+			conn.upload("myfiles", "equals1", file);
+			conn.upload("myfiles", "equals2", file);
+			fileD1 = conn.download("myfiles", "equals1", "/tmp/equalsD1.file");
+			fileD2 = conn.download("myfiles", "equals2", "/tmp/equalsD2.file");
+			assertEquals(fileD1,fileD2);
+		} catch (SwiftException e) {
+			fail(e.getMessage());
+			e.printStackTrace();
+		} catch (IOException e) {
+			fail(e.getMessage());
+			e.printStackTrace();
+		} finally {
+			
+		}
+	}
+	
+
+//	@Test
 	public void testGenRandomFile() {
 		try {
-			File target1 = genRandomFile("/tmp/random1.txt", 231);
+			File target1 = RandomFileGenerator.getFile("/tmp/random1.txt", 231);
 			assertEquals(231, target1.length());
-			// target1.deleteOnExit();
-
-			File target2 = genRandomFile("/tmp/random2.txt", 231);
-			assertEquals(231, target1.length());
-			// target1.deleteOnExit();
+			target1.delete();
 
 			long start = System.currentTimeMillis();
-			File big = genRandomFile("/tmp/bigdata", 2000000000);
+			File big = RandomFileGenerator.getFile("/tmp/bigdata", 2000000000);
 			long end = System.currentTimeMillis();
 			System.out.println("big time:" + (end - start));
 			assertEquals(2000000000, big.length());
+			big.delete();
 
 			start = System.currentTimeMillis();
-			File file512k = genRandomFile("/tmp/512KB.file", 512000);
+			File file512k = RandomFileGenerator.getFile("/tmp/512KB.file", 512000);
 			end = System.currentTimeMillis();
 			System.out.println("512KB time:" + (end - start));
 			assertEquals(512000, file512k.length());
+			file512k.delete();
 
 			start = System.currentTimeMillis();
-			File file1_3M = genRandomFile("/tmp/1_3MB.file", 1300000);
+			File file1_3M = RandomFileGenerator.getFile("/tmp/1_3MB.file", 1300000);
 			end = System.currentTimeMillis();
 			System.out.println("1.3MB time:" + (end - start));
 			assertEquals(1300000, file1_3M.length());
+			file1_3M.delete();
 
 		} catch (IOException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
 		} finally {
 		}
-	}
-
-//	@Test
-	public void randomFile() throws Exception {
-		System.out.println((byte) 257);
-		System.out.println((byte) 256);
-		System.out.println((byte) 255);
-		System.out.println((byte) 128);
-		System.out.println(Byte.MAX_VALUE);
-		System.out.println(Byte.MIN_VALUE);
-		while (true) {
-			int seed = (int) (Math.random() * 1000) % 255;
-			System.out.println("seed:" + seed);
-			byte r = (byte) seed;
-			System.out.println("byte:" + r);
-			Thread.sleep(1000);
-		}
-	}
-
-	private File genRandomFile(String filepath, long size) throws IOException {
-		int bufsize = 1024;
-		File file = new File(filepath);
-		BufferedOutputStream bos = null;
-		try {
-			bos = new BufferedOutputStream(new FileOutputStream(file));
-			long loopcnt = size / bufsize;
-			int remainSize = (int) (size % (long) bufsize);
-			for (long i = 0; i < loopcnt; i++) {
-				bos.write(genRandomBytes(bufsize));
-			}
-			bos.write(genRandomBytes(remainSize));
-			return file;
-		} finally {
-			if (bos != null) {
-				bos.close();
-			}
-		}
-	}
-
-	private byte[] genRandomBytes(int size) {
-		byte[] buf = new byte[size];
-		for (int i = 0; i < buf.length; i++) {
-			byte v = (byte) ((Math.random() * 1000) % 255);
-			buf[i] = v;
-		}
-		return buf;
 	}
 }

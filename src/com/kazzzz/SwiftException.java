@@ -1,4 +1,4 @@
-package sample;
+package com.kazzzz;
 
 public class SwiftException extends Exception {
 

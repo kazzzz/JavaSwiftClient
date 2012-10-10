@@ -1,4 +1,4 @@
-package sample;
+package com.kazzzz;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
