@@ -1,25 +1,21 @@
 package com.kazzzz;
 
-import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Set;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.kazzzz.SwiftException;
-import com.kazzzz.SwiftHttpConnector;
 import com.kazzzz.util.RandomFileGenerator;
 
 public class SwiftHttpConnectorTest {
 
+	private static final String CONTAINER_NAME_MYFILES = "myfiles";
 	private static final String PASSWORD = "hoge";
 	private static final String USER = "system:master";
 	private static String HOST = "172.16.116.128";
@@ -65,19 +61,19 @@ public class SwiftHttpConnectorTest {
 			conn = new SwiftHttpConnector();
 			conn.auth(AUTH_URL, USER, PASSWORD);
 			file = RandomFileGenerator.getFile("/tmp/1_3MB.file", 1300000);
-			conn.upload("myfiles", "tekito1_3MB", file);
+			conn.upload(CONTAINER_NAME_MYFILES, "tekito1_3MB", file);
+			file.delete();
+			conn.remove(CONTAINER_NAME_MYFILES, "tekito1_3MB");
 		} catch (SwiftException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
 		} catch (IOException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
-		} finally {
-			file.delete();
 		}
 	}
 
-//	@Test
+	// @Test
 	public void testUploadLargeFile() {
 		SwiftHttpConnector conn = null;
 		File file = null;
@@ -85,7 +81,9 @@ public class SwiftHttpConnectorTest {
 			conn = new SwiftHttpConnector();
 			conn.auth(AUTH_URL, USER, PASSWORD);
 			file = RandomFileGenerator.getFile("/tmp/bigdata", 2000000000);
-			conn.upload("myfiles", "bigdata2GB", file);
+			conn.upload(CONTAINER_NAME_MYFILES, "bigdata2GB", file);
+			file.delete();
+			conn.remove(CONTAINER_NAME_MYFILES, "bigdata2GB");
 		} catch (SwiftException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
@@ -96,84 +94,121 @@ public class SwiftHttpConnectorTest {
 			file.delete();
 		}
 	}
-	
+
 	@Test
 	public void testDownloadOK() {
 		SwiftHttpConnector conn = null;
-		File file = null;
+		File downloadfile = null;
+		String uploadObjectName = "1_3MB.file";
+		String dir = "/tmp/";
 		try {
 			conn = new SwiftHttpConnector();
 			conn.auth(AUTH_URL, USER, PASSWORD);
-			file = conn.download("myfiles", "tekito1_3MB", "/tmp/downloaded");
-			assertEquals(file.length(), 1300000);
+			File uploadfile = RandomFileGenerator.getFile(dir
+					+ uploadObjectName, 1300000);
+			conn.upload(CONTAINER_NAME_MYFILES, uploadObjectName, uploadfile);
+			downloadfile = conn.download(CONTAINER_NAME_MYFILES, uploadObjectName,
+					dir + "downloaded.file");
+			assertEquals(downloadfile.length(), 1300000);
+			downloadfile.delete();
+			uploadfile.delete();
+			conn.remove(CONTAINER_NAME_MYFILES, uploadObjectName);
 		} catch (SwiftException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
-		} finally {
-			file.delete();
+		} catch (IOException e) {
+			fail(e.getMessage());
+			e.printStackTrace();
 		}
-		
 	}
-	
+
 	@Test
 	public void testDownloadEqualsOK() {
 		SwiftHttpConnector conn = null;
+		String filename = "equals1OK.file";
+		String filename1 = "equals1.file";
+		String filename2 = "equals2.file";
+		String dir = "/tmp/";
 		File file = null;
 		File fileD1 = null;
 		File fileD2 = null;
 		try {
 			conn = new SwiftHttpConnector();
 			conn.auth(AUTH_URL, USER, PASSWORD);
-			file = RandomFileGenerator.getFile("/tmp/equalsOK.file", 512000);
-			conn.upload("myfiles", "equals1", file);
-			conn.upload("myfiles", "equals2", file);
-			fileD1 = conn.download("myfiles", "equals1", "/tmp/equalsD1.file");
-			fileD2 = conn.download("myfiles", "equals2", "/tmp/equalsD2.file");
-			assertEquals(fileD1,fileD2);
+			file = RandomFileGenerator.getFile(dir + filename, 512000);
+			conn.upload(CONTAINER_NAME_MYFILES, filename1, file);
+			conn.upload(CONTAINER_NAME_MYFILES, filename2, file);
+			fileD1 = conn.download(CONTAINER_NAME_MYFILES, filename1, dir
+					+ filename1);
+			fileD2 = conn.download(CONTAINER_NAME_MYFILES, filename2, dir
+					+ filename2);
+			assertEquals(fileD1.length(), fileD2.length());
+			conn.remove(CONTAINER_NAME_MYFILES, filename1);
+			conn.remove(CONTAINER_NAME_MYFILES, filename2);
+			file.delete();
+			fileD1.delete();
+			fileD2.delete();
 		} catch (SwiftException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
 		} catch (IOException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
-		} finally {
-			
 		}
 	}
-	
 
-//	@Test
-	public void testGenRandomFile() {
+	@Test
+	public void testRemoveOK() {
+		SwiftHttpConnector conn = null;
+		String filename = "removeok.file";
+		String filepath = "/tmp/" + filename;
 		try {
-			File target1 = RandomFileGenerator.getFile("/tmp/random1.txt", 231);
-			assertEquals(231, target1.length());
-			target1.delete();
-
-			long start = System.currentTimeMillis();
-			File big = RandomFileGenerator.getFile("/tmp/bigdata", 2000000000);
-			long end = System.currentTimeMillis();
-			System.out.println("big time:" + (end - start));
-			assertEquals(2000000000, big.length());
-			big.delete();
-
-			start = System.currentTimeMillis();
-			File file512k = RandomFileGenerator.getFile("/tmp/512KB.file", 512000);
-			end = System.currentTimeMillis();
-			System.out.println("512KB time:" + (end - start));
-			assertEquals(512000, file512k.length());
-			file512k.delete();
-
-			start = System.currentTimeMillis();
-			File file1_3M = RandomFileGenerator.getFile("/tmp/1_3MB.file", 1300000);
-			end = System.currentTimeMillis();
-			System.out.println("1.3MB time:" + (end - start));
-			assertEquals(1300000, file1_3M.length());
-			file1_3M.delete();
-
+			conn = new SwiftHttpConnector();
+			conn.auth(AUTH_URL, USER, PASSWORD);
+			File removeOkFile = RandomFileGenerator.getFile(filepath, 1024);
+			conn.upload(CONTAINER_NAME_MYFILES, filename, removeOkFile);
+			conn.remove(CONTAINER_NAME_MYFILES, filename);
+			removeOkFile.delete();
+		} catch (SwiftException e) {
+			fail(e.getMessage());
+			e.printStackTrace();
 		} catch (IOException e) {
 			fail(e.getMessage());
 			e.printStackTrace();
-		} finally {
 		}
+
+		try {
+			conn.download(CONTAINER_NAME_MYFILES, filename, filepath);
+			fail("not removed");
+		} catch (SwiftException ex) {
+			ex.printStackTrace();
+		}
+	}
+	
+	public void testListObjects() {
+		SwiftHttpConnector conn = null;
+		String filename = "list1.file";
+		String filename1 = "list2.file";
+		String filename2 = "list3.file";
+		String dir = "/tmp/";
+		File file = null;
+		File fileD1 = null;
+		File fileD2 = null;
+		try {
+			conn = new SwiftHttpConnector();
+			conn.auth(AUTH_URL, USER, PASSWORD);
+			Set objs = conn.listObjects();
+
+			for (Object obj : objs) {
+					
+			}
+			
+		} catch (SwiftException e) {
+			fail(e.getMessage());
+			e.printStackTrace();
+		} finally {
+			
+		}
+		
 	}
 }

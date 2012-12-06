@@ -68,7 +68,7 @@ public class SwiftHttpConnector {
 			urlconn.setDoOutput(true);
 			urlconn.setRequestProperty("Content-length",
 					Long.toString(file.length()));
-			urlconn.setFixedLengthStreamingMode((int)file.length());
+			urlconn.setFixedLengthStreamingMode((int) file.length());
 			urlconn.connect();
 
 			byte[] fbytes = new byte[1024];
@@ -125,19 +125,26 @@ public class SwiftHttpConnector {
 			urlconn.connect();
 
 			int responseCode = urlconn.getResponseCode();
+			int contentLength = urlconn.getContentLength();
 			if (responseCode != HttpURLConnection.HTTP_OK) {
-				throw new SwiftException("upload failed HTTP_STATUS_CODE:"
+				throw new SwiftException("download failed HTTP_STATUS_CODE:"
 						+ responseCode);
 			}
 			byte[] buf = new byte[1024];
 			int len;
 			bis = new BufferedInputStream(urlconn.getInputStream());
 			File file = new File(filepath);
+
 			bos = new BufferedOutputStream(new FileOutputStream(filepath));
 			while ((len = bis.read(buf)) != -1) {
 				bos.write(buf, 0, len);
 			}
 			bos.flush();
+			long realLength = file.length();
+			if (contentLength != realLength) {
+				throw new SwiftException("Content-Length (" + contentLength
+						+ ") is not equal real length(" + realLength + ")");
+			}
 			return file;
 		} catch (IOException e) {
 			throw new SwiftException(e.getMessage(), e);
@@ -156,6 +163,40 @@ public class SwiftHttpConnector {
 					e.printStackTrace();
 				}
 			}
+			if (urlconn != null) {
+				urlconn.disconnect();
+			}
 		}
 	}
+
+	public void remove(String containerName, String objectName)
+			throws SwiftException {
+		URL url = null;
+		HttpURLConnection urlconn = null;
+		try {
+			url = new URL(authInfo.getStorageToken() + "/" + containerName
+					+ "/" + objectName);
+			urlconn = (HttpURLConnection) url.openConnection();
+			urlconn.setRequestMethod("DELETE");
+			urlconn.setInstanceFollowRedirects(false);
+			urlconn.setRequestProperty("X-Auth-Token", authInfo.getAuthToken());
+			urlconn.connect();
+
+			int responseCode = urlconn.getResponseCode();
+			if (responseCode != HttpURLConnection.HTTP_NO_CONTENT
+					&& responseCode != HttpURLConnection.HTTP_NOT_FOUND) {
+				throw new SwiftException("remove failed HTTP_STATUS_CODE:"
+						+ responseCode);
+			}
+		} catch (MalformedURLException e) {
+			throw new SwiftException(e.getMessage(), e);
+		} catch (IOException e) {
+			throw new SwiftException(e.getMessage(), e);
+		} finally {
+			if (urlconn != null) {
+				urlconn.disconnect();
+			}
+		}
+	}
+
 }
